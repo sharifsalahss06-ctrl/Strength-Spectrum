@@ -1,26 +1,22 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 
-// API Key Setup: The API key is provided at runtime by the environment.
-const apiKey = ""; 
-const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+// API/Network Code REMOVED to ensure maximum stability and reliability.
 
-// --- STRENGTH DATA (Updated to 6 Elements) ---
+// --- STRENGTH DATA (6 Elements) ---
 const STRENGTH_ELEMENTS = [
     { name: "Execution", label: "Speed & Action", key: 'fire', colorClass: "text-red-400", hex: '#F87171' },
     { name: "Relational", label: "Empathy & Influence", key: 'water', colorClass: "text-blue-400", hex: '#60A5FA' },
     { name: "Analytical", label: "Stability & Logic", key: 'earth', colorClass: "text-yellow-400", hex: '#FBBF24' },
     { name: "Creative", label: "Vision & Ideation", key: 'air', colorClass: "text-teal-400", hex: '#2DD4BF' },
-    // NEW: Adaptability
     { name: "Adaptability", label: "Agility & Learning", key: 'agile', colorClass: "text-purple-400", hex: '#C084FC' },
-    // NEW: Leadership
     { name: "Leadership", label: "Vision & Direction", key: 'lead', colorClass: "text-pink-400", hex: '#F472B6' },
 ];
 
-// FIX: Initial state now includes all 6 elements
+// Initial state for all 6 keys
 const initialEssence = { fire: 50, water: 50, earth: 50, air: 50, agile: 50, lead: 50 }; 
 const TARGET_PROFILE_KEY = 'alchemistTargetProfile';
 
-// --- IMPROVEMENT STRATEGY DATA (Updated for new elements) ---
+// --- IMPROVEMENT STRATEGY DATA (6 Elements) ---
 const STRATEGY_DATA = {
     fire: [
         { title: "Define Micro-Milestones", description: "Break large projects into tasks no longer than 4 hours. Focus on completing 3 micro-milestones daily to build momentum." },
@@ -42,13 +38,11 @@ const STRATEGY_DATA = {
         { title: "Seek External Input", description: "Spend time researching solutions in completely unrelated industries (e.g., using a medical solution for a tech problem) to force novel thinking." },
         { title: "Visualization & Prototyping", description: "Do not rely on written ideas. Quickly sketch, draw, or build a physical mockup of your vision to solidify the concept." },
     ],
-    // NEW: Adaptability Strategies
     agile: [
         { title: "Cross-Training Day", description: "Spend 2 hours learning a tool or skill completely outside your primary job function once a month to increase versatility." },
         { title: "Scenario Planning", description: "For every major task, plan a 'What if X fails?' contingency. Practicing pivots improves agility under pressure." },
         { title: "Embrace Failure Audits", description: "When a project fails, analyze the failure immediately to extract lessons, rather than dwelling on the mistake." },
     ],
-    // NEW: Leadership Strategies
     lead: [
         { title: "The 15-Minute Vision Share", description: "Dedicate a small portion of team meetings to reiterate the 'Why' (the long-term vision) to maintain team focus and direction." },
         { title: "Mentorship Swap", description: "Formally mentor a junior colleague while simultaneously seeking mentorship from a senior colleague outside your department." },
@@ -56,7 +50,7 @@ const STRATEGY_DATA = {
     ],
 };
 
-// --- CORE LOGIC: Alchemy Mixer (Updated for 6 elements) ---
+// --- CORE LOGIC: Alchemy Mixer ---
 const analyzeEssence = (essences) => {
     // Note: The logic now maps and sorts all 6 keys
     const sorted = STRENGTH_ELEMENTS.map(e => ({ ...e, score: essences[e.key] })).sort((a, b) => b.score - a.score);
@@ -84,7 +78,7 @@ const analyzeEssence = (essences) => {
     return { ...profile, dominant: dominant, weakest: weakest, currentEssences: essences };
 };
 
-// --- AURA VISUALIZATION COMPONENT (Identical) ---
+// --- AURA VISUALIZATION COMPONENT ---
 const AuraDisplay = ({ analysis }) => {
     const gradientStyle = {
         '--aura-color-1': analysis.dominant.hex || '#6B7280', 
@@ -92,7 +86,7 @@ const AuraDisplay = ({ analysis }) => {
     };
 
     return (
-        <div className={`flex items-center justify-center p-6 mb-6 rounded-full aspect-square relative ${analysis.pulseRate === 'fast' ? 'animate-pulse-fast' : analysis.pulseRate === 'medium' ? 'animate-pulse-medium' : 'animate-pulse-slow'}`} style={gradientStyle}>
+        <div className={`flex items-center justify-center p-6 mb-6 rounded-full aspect-square relative ${analysis.pulseRate === 'fast' ? 'animate-pulse-fast' : analysis.pulseRate === 'medium' ? 'animate-pulse-medium' : analysis.pulseRate === 'slow'}`} style={gradientStyle}>
             
             {/* Inner Essence Core */}
             <div className={`w-32 h-32 rounded-full shadow-2xl ${analysis.color} flex items-center justify-center`}>
@@ -172,7 +166,7 @@ const EssenceSlider = ({ element, value, onChange }) => (
     </div>
 );
 
-// --- IMPROVEMENT ADVICE CARD (Updated for 6 elements) ---
+// --- IMPROVEMENT ADVICE CARD ---
 const ImprovementAdviceCard = ({ analysis }) => {
     const weakestKey = analysis.weakest.key;
     
@@ -211,7 +205,7 @@ const ImprovementAdviceCard = ({ analysis }) => {
     );
 };
 
-// --- COMPARISON COMPONENT (Updated for 6 elements) ---
+// --- COMPARISON COMPONENT ---
 const ComparisonCard = ({ currentEssences, savedProfile, setEssences }) => {
     if (!savedProfile) {
         return (
@@ -251,172 +245,17 @@ const ComparisonCard = ({ currentEssences, savedProfile, setEssences }) => {
     );
 };
 
-// --- GEMINI-POWERED CAREER ALIGNMENT CHECKER (Updated for 6 elements) ---
-const CareerAlignmentChecker = ({ currentEssences }) => {
-    const [jobInput, setJobInput] = useState('');
-    const [alignmentResult, setAlignmentResult] = useState(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState(null);
-
-    // Define the JSON schema for the LLM's response (now 6 properties)
-    const responseSchema = {
-        type: "OBJECT",
-        properties: {
-            Execution: { type: "NUMBER", description: "Required score (0-100) for Execution/Speed & Action." },
-            Relational: { type: "NUMBER", description: "Required score (0-100) for Relational/Empathy & Influence." },
-            Analytical: { type: "NUMBER", description: "Required score (0-100) for Analytical/Stability & Logic." },
-            Creative: { type: "NUMBER", description: "Required score (0-100) for Creative/Vision & Ideation." },
-            Adaptability: { type: "NUMBER", description: "Required score (0-100) for Adaptability/Agility & Learning." },
-            Leadership: { type: "NUMBER", description: "Required score (0-100) for Leadership/Vision & Direction." },
-        },
-        required: ["Execution", "Relational", "Analytical", "Creative", "Adaptability", "Leadership"],
-    };
-
-    const checkAlignment = async () => {
-        if (!jobInput.trim()) return;
-
-        setIsLoading(true);
-        setError(null);
-        setAlignmentResult(null);
-
-        // Updated system prompt to include all 6 strengths
-        const systemPrompt = "You are a professional career analyst and expert in soft skill requirements. Given a job title, your task is to assess the ideal strength profile required for high success in that role. Provide the output as a JSON object with scores between 0 and 100 for each of the six specified strength categories: Execution, Relational, Analytical, Creative, Adaptability, and Leadership.";
-        const userQuery = `Analyze the ideal strength profile (0-100 scores) for the role of: ${jobInput}`;
-
-        const payload = {
-            contents: [{ parts: [{ text: userQuery }] }],
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            generationConfig: {
-                responseMimeType: "application/json",
-                responseSchema: responseSchema,
-            }
-        };
-
-        let success = false;
-        let retries = 0;
-        const maxRetries = 3;
-
-        while (!success && retries < maxRetries) {
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                if (!response.ok) {
-                    throw new Error(`API returned status ${response.status}`);
-                }
-
-                const result = await response.json();
-                const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                
-                if (!jsonText) {
-                    throw new Error("Received empty response from API.");
-                }
-
-                const requirements = JSON.parse(jsonText);
-                
-                // --- Alignment Logic ---
-                const feedback = [];
-                let totalGap = 0;
-
-                STRENGTH_ELEMENTS.forEach(element => {
-                    // Match the required score by the element's full name
-                    const requiredScore = requirements[element.name]; 
-                    const currentScore = currentEssences[element.key];
-                    const gap = requiredScore - currentScore;
-
-                    if (gap > 0) {
-                        totalGap += gap;
-                        feedback.push({ name: element.name, status: 'BOOST REQUIRED', gap: gap, color: 'text-red-400' });
-                    } else {
-                        feedback.push({ name: element.name, status: 'ALIGNED', gap: 0, color: 'text-green-400' });
-                    }
-                });
-
-                const alignmentScore = Math.max(0, 100 - (totalGap * 0.3)); // Adjusted multiplier slightly for 6 elements
-
-                setAlignmentResult({
-                    jobTitle: jobInput,
-                    feedback: feedback,
-                    alignmentScore: alignmentScore,
-                    isHighAlignment: alignmentScore >= 75
-                });
-                success = true;
-
-            } catch (err) {
-                retries++;
-                if (retries < maxRetries) {
-                    const delay = Math.pow(2, retries) * 1000;
-                    await new Promise(res => setTimeout(res, delay));
-                } else {
-                    setError("Could not analyze job profile. Please try a different role.");
-                }
-            }
-        }
-        setIsLoading(false);
-    };
-    
-    // Determine overall alignment color
-    const alignmentColor = alignmentResult ? 
-        alignmentResult.isHighAlignment ? 'bg-green-600' : 'bg-yellow-600'
-        : 'bg-gray-600';
-
+// --- REMOVED GEMINI-POWERED CAREER ALIGNMENT CHECKER ---
+const CareerAlignmentChecker = () => {
+    // Placeholder component replaces the complex Gemini API call for stability
     return (
-        <div className="w-full mt-8 p-5 bg-gray-700 rounded-xl shadow-2xl border border-blue-500">
-            <h3 className="text-2xl font-bold text-blue-400 mb-4 border-b border-blue-800 pb-2">
-                3. ✨ Dynamic Career Alignment Check ✨
+        <div className="w-full mt-8 p-5 bg-gray-700 rounded-xl shadow-2xl border border-gray-500">
+            <h3 className="text-2xl font-bold text-gray-400 mb-4 border-b border-gray-800 pb-2">
+                3. Career Alignment (Analysis Removed)
             </h3>
-            
-            <p className="text-sm text-gray-400 mb-3">Type any job to instantly see the required strength profile analyzed by professionals:</p>
-            
-            <div className="flex space-x-3 mb-4">
-                <input
-                    type="text"
-                    value={jobInput}
-                    onChange={(e) => setJobInput(e.target.value)}
-                    placeholder="e.g., Chief Technology Officer"
-                    className="flex-grow p-2 rounded bg-gray-800 text-white border border-gray-600 focus:border-blue-400"
-                    disabled={isLoading}
-                />
-                <button
-                    onClick={checkAlignment}
-                    className="p-2 rounded font-bold text-gray-900 bg-blue-400 hover:bg-blue-500 transition duration-200"
-                    disabled={isLoading}
-                >
-                    {isLoading ? (
-                         <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                    ) : (
-                        'Analyze'
-                    )}
-                </button>
-            </div>
-
-            {error && <div className="mt-4 p-3 bg-red-800 rounded text-red-300 font-semibold">{error}</div>}
-
-            {alignmentResult && !isLoading && (
-                <div className="mt-4 p-4 rounded-xl shadow-inner bg-gray-800">
-                    <div className={`p-3 rounded-lg ${alignmentColor} text-center font-bold text-white mb-3 transition-all duration-300`}>
-                        Alignment Score for {alignmentResult.jobTitle}: {Math.round(alignmentResult.alignmentScore)}%
-                    </div>
-
-                    <p className="font-semibold text-gray-300 mb-2">Required Strengths Analysis (Professional Requirements):</p>
-                    <ul className="space-y-1">
-                        {alignmentResult.feedback.map((f, index) => (
-                            <li key={index} className="flex justify-between text-sm">
-                                <span className="font-semibold text-gray-400">{f.name}:</span>
-                                <span className={f.color}>
-                                    {f.status} {f.gap > 0 && `(+${f.gap} points needed)`}
-                                </span>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            )}
+            <p className="text-sm text-gray-400">
+                This feature requires external network access which is currently disabled for stability. Use the **Target Gap Analysis** above to manually define and compare job requirements.
+            </p>
         </div>
     );
 };
@@ -510,8 +349,8 @@ const App = () => {
                             <div className="mt-3 text-center text-sm font-semibold text-green-400 animate-fadeIn">{message}</div>
                         )}
                         
-                        {/* 3. GEMINI-POWERED CAREER ALIGNMENT CHECK */}
-                        <CareerAlignmentChecker currentEssences={essences} />
+                        {/* 3. Placeholder for Career Alignment Check */}
+                        <CareerAlignmentChecker />
                     </div>
                     
                     {/* --- Output Column (The Spectacle & Comparison) --- */}
