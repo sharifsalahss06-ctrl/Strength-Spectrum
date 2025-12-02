@@ -17,6 +17,7 @@
             --accent-main: #ff7e5f; /* Coral/Orange for excitement */
             --accent-chart: #feb47b; /* Softer color for chart fill */
             --warning-alert: #ffc107;
+            --update-btn: #3CB371; /* MediumSeaGreen */
         }
 
         body {
@@ -82,12 +83,27 @@
             border: 1px solid var(--accent-main);
         }
         
-        /* FUN ANIMATION: Pulsing Button */
+        /* FUN ANIMATION: Pulsing Button (Player Submit) */
         #submit-budget-btn {
             background-color: var(--accent-main);
             border: none;
             color: var(--primary-bg);
             animation: pulse 1.5s infinite;
+        }
+        /* New Update Button (Host Control) */
+        #force-update-btn {
+            background-color: var(--update-btn); 
+            border: none;
+            color: white;
+            padding: 12px 20px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-top: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+            transition: background-color 0.2s;
+        }
+        #force-update-btn:hover {
+            background-color: #3e8e41;
         }
 
         @keyframes pulse {
@@ -123,7 +139,6 @@
                 <div class="col-lg-7">
                     <div class="card shadow-lg">
                         <div class="card-body p-4">
-                            <!-- Canvas where the smooth chart animation happens -->
                             <canvas id="strengthChart"></canvas>
                         </div>
                     </div>
@@ -133,7 +148,7 @@
                     <div class="card shadow-lg h-100 p-3">
                         <div class="card-body">
                             <h4 class="text-info">Instructions:</h4>
-                            <p class="text-muted">Scan the QR code to access the Talent Budget screen. **Allocate 100 points.** The radar will update live!</p>
+                            <p class="text-muted">Scan the QR code to access the Talent Budget screen. **Allocate 100 points.**</p>
                             <hr>
                             <div id="host-metrics" class="mb-4">
                                 <p class="mb-1"><strong>Total Participants:</strong> <span id="total-votes" class="badge bg-success fs-5">0</span></p>
@@ -142,6 +157,12 @@
                             
                             <h4 class="text-danger">Live Analysis:</h4>
                             <p id="analysis-text" class="text-muted">The shifting shape reveals your collective priorities. Look for sharp peaks (Superpowers) and deep valleys (Gaps)!</p>
+                            
+                            <!-- NEW MANUAL CONTROL BUTTON -->
+                            <div class="text-center">
+                                <button id="force-update-btn" class="btn shadow-lg" onclick="updateHostChart()">FORCE UPDATE RESULTS</button>
+                            </div>
+                            
                         </div>
                     </div>
                 </div>
@@ -163,7 +184,7 @@
     </main>
 
     <script>
-        // --- JAVASCRIPT: THE GAME ENGINE AND CHART LOGIC ---
+        // --- JAVASCRIPT: THE GAME ENGINE AND CHART LOGIC (FINALIZED) ---
         
         const STRENGTH_AXES = {
             ANALYTICAL: "The Oracle (Logic)",
@@ -175,6 +196,7 @@
         const TALENT_POINTS = 100;
         const VOTE_KEY = 'strengthSpectrumVotes'; 
         const AGGREGATE_KEY = 'strengthAggregate'; 
+        const VOTED_FLAG = 'hasVoted'; 
         let chartInstance = null;
         let remainingPoints = TALENT_POINTS;
 
@@ -191,7 +213,7 @@
                     datasets: [{
                         label: 'Collective Strength Profile',
                         data: [20, 20, 20, 20, 20], // Centered start
-                        backgroundColor: 'rgba(255, 126, 95, 0.4)', // Accent for fun
+                        backgroundColor: 'rgba(255, 126, 95, 0.4)',
                         borderColor: '#FF7E5F',
                         pointBackgroundColor: '#FF7E5F',
                         borderWidth: 2
@@ -211,8 +233,8 @@
                         }
                     },
                     animation: {
-                        duration: 700, // Smooth transition duration
-                        easing: 'easeInOutQuad' // Fun animation style
+                        duration: 700,
+                        easing: 'easeInOutQuad'
                     },
                     plugins: {
                         legend: { display: false },
@@ -223,13 +245,24 @@
         }
 
         function getAggregateData() {
-            return JSON.parse(localStorage.getItem(AGGREGATE_KEY) || '{}');
+            try {
+                return JSON.parse(localStorage.getItem(AGGREGATE_KEY) || '{}');
+            } catch (e) {
+                console.error("Error reading AGGREGATE data from storage:", e);
+                return {};
+            }
         }
 
         function getAllSubmissions() {
-            return JSON.parse(localStorage.getItem(VOTE_KEY) || '[]');
+            try {
+                return JSON.parse(localStorage.getItem(VOTE_KEY) || '[]');
+            } catch (e) {
+                console.error("Error reading SUBMISSIONS data from storage:", e);
+                return [];
+            }
         }
 
+        // The core function that reads data and animates the chart
         function updateHostChart() {
             if (!chartInstance) return;
 
@@ -240,7 +273,13 @@
 
             document.getElementById('total-votes').textContent = totalVotes;
             
-            if (totalVotes === 0) return;
+            if (totalVotes === 0) {
+                // Keep chart centered if no votes
+                chartInstance.data.datasets[0].data = [20, 20, 20, 20, 20];
+                document.getElementById('total-points').textContent = 0;
+                chartInstance.update('show');
+                return;
+            }
 
             const newChartData = [];
             const keys = Object.keys(STRENGTH_AXES);
@@ -279,7 +318,7 @@
             });
             form.innerHTML = html + form.innerHTML;
             
-            if (localStorage.getItem('hasVoted')) {
+            if (localStorage.getItem(VOTED_FLAG)) {
                 disableVoting();
             }
         }
@@ -305,7 +344,6 @@
 
             const submitBtn = document.getElementById('submit-budget-btn');
             
-            // Logic to activate the pulsing submit button
             if (remainingPoints < 0) {
                 remainingElement.classList.remove('alert-danger');
                 remainingElement.classList.add('alert-warning');
@@ -333,7 +371,7 @@
         }
 
         function submitBudget() {
-            if (remainingPoints !== 0 || localStorage.getItem('hasVoted')) return;
+            if (remainingPoints !== 0 || localStorage.getItem(VOTED_FLAG)) return;
 
             let submittedBudget = {};
             const inputs = document.querySelectorAll('.talent-input input');
@@ -357,23 +395,22 @@
             localStorage.setItem(VOTE_KEY, JSON.stringify(allSubmissions));
 
             // 3. Mark as voted and disable the form
-            localStorage.setItem('hasVoted', 'true'); 
+            localStorage.setItem(VOTED_FLAG, 'true'); 
             disableVoting();
+            
+            // 4. Update the Host screen immediately if possible (if they are on the same machine/browser instance)
+            if (window.innerWidth > 768) { 
+                updateHostChart();
+            }
         }
 
         // --- GAME START ---
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Clear past votes on initial load for a fresh presentation (ONLY on Host Screen)
-            if (window.innerWidth > 768) {
-                localStorage.clear(); 
-            }
-            
             // Check screen size to initialize correct view
             if (window.innerWidth > 768) {
+                // Host starts centered and requires manual update
                 initChart();
-                // Host starts reading data every 1.5 seconds
-                setInterval(updateHostChart, 1500); 
             } else {
                 // Player generates the input form
                 generatePlayerForm();
