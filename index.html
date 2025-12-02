@@ -1,422 +1,556 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Strength Spectrum: The Talent Budget</title>
-    <!-- Bootstrap 5 CDN for Clean, Professional UI -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <style>
-        /* --- EMBEDDED CSS FOR AMAZING AESTHETICS & FUN --- */
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 
-        :root {
-            --primary-bg: #1a1a2e; /* Deep space blue */
-            --card-bg: #2a2a4a;
-            --text-light: #e0e0f0;
-            --accent-main: #ff7e5f; /* Coral/Orange for excitement */
-            --accent-chart: #feb47b; /* Softer color for chart fill */
-            --warning-alert: #ffc107;
-            --update-btn: #3CB371; /* MediumSeaGreen */
-        }
+// API Key Setup: The API key is provided at runtime by the environment.
+const apiKey = ""; 
+const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
-        body {
-            background-color: var(--primary-bg);
-            color: var(--text-light);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            transition: background-color 0.5s;
-        }
+// --- STRENGTH DATA (Updated to 6 Elements) ---
+const STRENGTH_ELEMENTS = [
+    { name: "Execution", label: "Speed & Action", key: 'fire', colorClass: "text-red-400", hex: '#F87171' },
+    { name: "Relational", label: "Empathy & Influence", key: 'water', colorClass: "text-blue-400", hex: '#60A5FA' },
+    { name: "Analytical", label: "Stability & Logic", key: 'earth', colorClass: "text-yellow-400", hex: '#FBBF24' },
+    { name: "Creative", label: "Vision & Ideation", key: 'air', colorClass: "text-teal-400", hex: '#2DD4BF' },
+    // NEW: Adaptability
+    { name: "Adaptability", label: "Agility & Learning", key: 'agile', colorClass: "text-purple-400", hex: '#C084FC' },
+    // NEW: Leadership
+    { name: "Leadership", label: "Vision & Direction", key: 'lead', colorClass: "text-pink-400", hex: '#F472B6' },
+];
 
-        header {
-            background-color: var(--card-bg);
-            border-bottom: 3px solid var(--accent-main);
-        }
+// FIX: Initial state now includes all 6 elements
+const initialEssence = { fire: 50, water: 50, earth: 50, air: 50, agile: 50, lead: 50 }; 
+const TARGET_PROFILE_KEY = 'alchemistTargetProfile';
 
-        .screen-container {
-            max-width: 1200px;
-            margin: 40px auto;
-        }
+// --- IMPROVEMENT STRATEGY DATA (Updated for new elements) ---
+const STRATEGY_DATA = {
+    fire: [
+        { title: "Define Micro-Milestones", description: "Break large projects into tasks no longer than 4 hours. Focus on completing 3 micro-milestones daily to build momentum." },
+        { title: "Use Timeboxing", description: "Dedicate 45 minutes of hyper-focused work followed by a 15-minute break. This disciplines your speed and prevents burnout." },
+        { title: "Implement 'Done' Criteria", description: "Establish a clear definition of 'done' before starting a task to prevent rushed, incomplete execution." },
+    ],
+    water: [
+        { title: "Active Listening Practice", description: "During meetings, dedicate 70% of your energy to listening and 30% to talking. Summarize the speaker's point before responding." },
+        { title: "Scheduled Check-ins", description: "Schedule non-task-related 10-minute check-ins with team members to build trust and emotional intelligence." },
+        { title: "Empathy Mapping", description: "Before making a decision, visualize how it will affect the person most impacted by the change." },
+    ],
+    earth: [
+        { title: "Challenge Assumptions", description: "For every project, list the three largest assumptions being made. Find one piece of data to test each one." },
+        { title: "Adopt the '5 Whys' Rule", description: "When a problem arises, ask 'Why?' five times in succession to get to the root cause, not just the symptom." },
+        { title: "Structured Decision Matrix", description: "Use a simple pros/cons list or a weighted matrix before making medium-to-high stake decisions to minimize risk." },
+    ],
+    air: [
+        { title: "The 'Bad Idea' Session", description: "Schedule ten minutes to brainstorm only the worst, most ridiculous ideas possible. This clears mental blocks and often leads to unexpected breakthroughs." },
+        { title: "Seek External Input", description: "Spend time researching solutions in completely unrelated industries (e.g., using a medical solution for a tech problem) to force novel thinking." },
+        { title: "Visualization & Prototyping", description: "Do not rely on written ideas. Quickly sketch, draw, or build a physical mockup of your vision to solidify the concept." },
+    ],
+    // NEW: Adaptability Strategies
+    agile: [
+        { title: "Cross-Training Day", description: "Spend 2 hours learning a tool or skill completely outside your primary job function once a month to increase versatility." },
+        { title: "Scenario Planning", description: "For every major task, plan a 'What if X fails?' contingency. Practicing pivots improves agility under pressure." },
+        { title: "Embrace Failure Audits", description: "When a project fails, analyze the failure immediately to extract lessons, rather than dwelling on the mistake." },
+    ],
+    // NEW: Leadership Strategies
+    lead: [
+        { title: "The 15-Minute Vision Share", description: "Dedicate a small portion of team meetings to reiterate the 'Why' (the long-term vision) to maintain team focus and direction." },
+        { title: "Mentorship Swap", description: "Formally mentor a junior colleague while simultaneously seeking mentorship from a senior colleague outside your department." },
+        { title: "Decisive Constraint Setting", description: "Practice setting clear, non-negotiable boundaries or objectives in a task to guide team effort and reduce scope creep." },
+    ],
+};
 
-        /* View Switching Logic */
-        @media (max-width: 768px) {
-            #host-screen { display: none !important; }
-            #player-screen { display: block !important; }
-        }
+// --- CORE LOGIC: Alchemy Mixer (Updated for 6 elements) ---
+const analyzeEssence = (essences) => {
+    // Note: The logic now maps and sorts all 6 keys
+    const sorted = STRENGTH_ELEMENTS.map(e => ({ ...e, score: essences[e.key] })).sort((a, b) => b.score - a.score);
+    const dominant = sorted[0];
+    const weakest = sorted[5]; // The 6th element is now the weakest
 
-        @media (min-width: 769px) {
-            #host-screen { display: block !important; }
-            #player-screen { display: none !important; }
-        }
+    let profile = { title: "Balanced Core", summary: "You are an adaptable generalist. You are highly resilient but lack the sharp edge of a defined superpower.", color: "bg-gradient-to-r from-purple-500 to-pink-500", pulseRate: "slow" };
 
-        /* Host Screen Visuals */
-        #host-screen .card {
-            background-color: var(--card-bg);
-            border: 1px solid var(--accent-main);
-            height: 100%;
+    if (dominant.score >= 80) {
+        if (dominant.key === 'fire') {
+            profile = { title: "The Volcanic Executor (Superpower: Action)", summary: `Your strength is rapid, aggressive execution. You get things done fast, but your critical flaw is 'Blind Speed' (low ${weakest.name}).`, color: "bg-gradient-to-r from-red-600 to-yellow-600", pulseRate: "fast" };
+        } else if (dominant.key === 'water') {
+            profile = { title: "The Harmonious Nexus (Superpower: Empathy)", summary: `Your strength is profound influence and team harmony. Your critical flaw is 'Paralysis by Consensus' (low ${weakest.name}).`, color: "bg-gradient-to-r from-blue-600 to-cyan-400", pulseRate: "medium" };
+        } else if (dominant.key === 'earth') {
+            profile = { title: "The Foundation Architect (Superpower: Logic)", summary: `Your strength is impeccable structure and reliability. Your critical flaw is 'Rigid Thinking' (low ${weakest.name}), making quick pivots impossible.`, color: "bg-gradient-to-r from-yellow-800 to-green-700", pulseRate: "slow" };
+        } else if (dominant.key === 'air') {
+            profile = { title: "The Limitless Visionary (Superpower: Creativity)", summary: `Your strength is defining the future and endless ideation. Your critical flaw is 'Groundless Dreams' (low ${weakest.name}), struggling with implementation.`, color: "bg-gradient-to-r from-teal-500 to-indigo-600", pulseRate: "fast" };
+        } else if (dominant.key === 'agile') {
+            profile = { title: "The Adaptive Pioneer (Superpower: Agility)", summary: `Your strength is your ability to pivot and learn quickly. Your critical flaw is 'Lack of Deep Roots' (low ${weakest.name}), risking burnout or inconsistency.`, color: "bg-gradient-to-r from-purple-600 to-pink-600", pulseRate: "medium" };
+        } else if (dominant.key === 'lead') {
+            profile = { title: "The Strategic Commander (Superpower: Direction)", summary: `Your strength is setting clear vision and inspiring teams. Your critical flaw is 'Delegation Overload' (low ${weakest.name}), risking micromanagement.`, color: "bg-gradient-to-r from-pink-700 to-red-500", pulseRate: "medium" };
         }
-        
-        /* Player Input Styles */
-        .talent-input {
-            background: #333355; /* Dark purple shade */
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            animation: fadeIn 0.5s ease-out;
-        }
-        .talent-label {
-            min-width: 120px;
-            font-weight: bold;
-            color: #90CAF9;
-        }
-        .point-display {
-            min-width: 50px;
-            text-align: center;
-            font-weight: bold;
-            color: var(--warning-alert);
-            font-size: 1.2em;
-        }
-        .form-control {
-            background-color: #4a4a6e;
-            color: var(--text-light);
-            border: 1px solid var(--accent-main);
-        }
-        
-        /* FUN ANIMATION: Pulsing Button (Player Submit) */
-        #submit-budget-btn {
-            background-color: var(--accent-main);
-            border: none;
-            color: var(--primary-bg);
-            animation: pulse 1.5s infinite;
-        }
-        /* New Update Button (Host Control) */
-        #force-update-btn {
-            background-color: var(--update-btn); 
-            border: none;
-            color: white;
-            padding: 12px 20px;
-            font-size: 1.2rem;
-            font-weight: bold;
-            margin-top: 20px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
-            transition: background-color 0.2s;
-        }
-        #force-update-btn:hover {
-            background-color: #3e8e41;
-        }
+    }
 
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(255, 126, 95, 0.7); }
-            70% { box-shadow: 0 0 0 15px rgba(255, 126, 95, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(255, 126, 95, 0); }
-        }
+    return { ...profile, dominant: dominant, weakest: weakest, currentEssences: essences };
+};
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    </style>
-</head>
-<body class="bg-dark text-light">
+// --- AURA VISUALIZATION COMPONENT (Identical) ---
+const AuraDisplay = ({ analysis }) => {
+    const gradientStyle = {
+        '--aura-color-1': analysis.dominant.hex || '#6B7280', 
+        '--aura-color-2': analysis.weakest.hex || '#6B7280',
+    };
 
-    <!-- Chart.js CDN for Radar Graph -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-
-    <header class="text-center py-4 shadow-lg">
-        <h1 class="display-5 fw-bold text-light">✨ Strength Spectrum: The Talent Budget ✨</h1>
-        <p class="lead text-muted">Design your collective superpower. Allocate 100 Talent Points.</p>
-    </header>
-
-    <main class="container py-5">
-        
-        <!-- HOST SCREEN (Desktop View - The Spectacle) -->
-        <div id="host-screen" class="screen-container">
-            <h2 class="text-center mb-4 text-warning">Collective Strength Radar</h2>
+    return (
+        <div className={`flex items-center justify-center p-6 mb-6 rounded-full aspect-square relative ${analysis.pulseRate === 'fast' ? 'animate-pulse-fast' : analysis.pulseRate === 'medium' ? 'animate-pulse-medium' : 'animate-pulse-slow'}`} style={gradientStyle}>
             
-            <div class="row">
-                <!-- Radar Chart Container -->
-                <div class="col-lg-7">
-                    <div class="card shadow-lg">
-                        <div class="card-body p-4">
-                            <canvas id="strengthChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-                <!-- Instructions and Metrics -->
-                <div class="col-lg-5">
-                    <div class="card shadow-lg h-100 p-3">
-                        <div class="card-body">
-                            <h4 class="text-info">Instructions:</h4>
-                            <p class="text-muted">Scan the QR code to access the Talent Budget screen. **Allocate 100 points.**</p>
-                            <hr>
-                            <div id="host-metrics" class="mb-4">
-                                <p class="mb-1"><strong>Total Participants:</strong> <span id="total-votes" class="badge bg-success fs-5">0</span></p>
-                                <p><strong>Total Points Allocated:</strong> <span id="total-points" class="badge bg-warning fs-5">0</span></p>
-                            </div>
-                            
-                            <h4 class="text-danger">Live Analysis:</h4>
-                            <p id="analysis-text" class="text-muted">The shifting shape reveals your collective priorities. Look for sharp peaks (Superpowers) and deep valleys (Gaps)!</p>
-                            
-                            <!-- NEW MANUAL CONTROL BUTTON -->
-                            <div class="text-center">
-                                <button id="force-update-btn" class="btn shadow-lg" onclick="updateHostChart()">FORCE UPDATE RESULTS</button>
-                            </div>
-                            
-                        </div>
-                    </div>
-                </div>
+            {/* Inner Essence Core */}
+            <div className={`w-32 h-32 rounded-full shadow-2xl ${analysis.color} flex items-center justify-center`}>
+                <span className="text-4xl font-extrabold text-white">{analysis.dominant.name.charAt(0)}</span>
             </div>
-        </div>
-
-        <!-- PLAYER SCREEN (Mobile View - The Game) -->
-        <div id="player-screen" class="screen-container">
-            <h2 class="text-center mb-4 text-info">Allocate Your 100 Talent Points</h2>
-            <div id="allocation-form">
-                <!-- Inputs generated by JS -->
-                <p class="alert alert-danger text-center fw-bold fs-4">Remaining Points: <span id="points-remaining">100</span></p>
-            </div>
-            <div class="text-center mt-4">
-                <button id="submit-budget-btn" class="btn btn-lg shadow-lg" onclick="submitBudget()" disabled>Allocate All 100 Points</button>
-            </div>
-            <p id="submission-message" class="text-center text-success mt-3 fw-bold hidden fs-5">Budget Submitted! Analyzing the room...</p>
-        </div>
-    </main>
-
-    <script>
-        // --- JAVASCRIPT: THE GAME ENGINE AND CHART LOGIC (FINALIZED) ---
-        
-        const STRENGTH_AXES = {
-            ANALYTICAL: "The Oracle (Logic)",
-            CREATIVE: "The Weaver (Ideation)",
-            RELATIONAL: "The Nexus (Influence)",
-            EXECUTION: "The Engine (Speed)",
-            LEADERSHIP: "The Captain (Vision)"
-        };
-        const TALENT_POINTS = 100;
-        const VOTE_KEY = 'strengthSpectrumVotes'; 
-        const AGGREGATE_KEY = 'strengthAggregate'; 
-        const VOTED_FLAG = 'hasVoted'; 
-        let chartInstance = null;
-        let remainingPoints = TALENT_POINTS;
-
-        // --- HOST SCREEN LOGIC (Reading Data) ---
-
-        function initChart() {
-            const ctx = document.getElementById('strengthChart').getContext('2d');
-            const labels = Object.values(STRENGTH_AXES);
-
-            chartInstance = new Chart(ctx, {
-                type: 'radar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Collective Strength Profile',
-                        data: [20, 20, 20, 20, 20], // Centered start
-                        backgroundColor: 'rgba(255, 126, 95, 0.4)',
-                        borderColor: '#FF7E5F',
-                        pointBackgroundColor: '#FF7E5F',
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        r: {
-                            angleLines: { color: 'rgba(255, 255, 255, 0.2)' },
-                            grid: { color: 'rgba(255, 255, 255, 0.2)' },
-                            pointLabels: { color: '#e0e0f0', font: { size: 14 } },
-                            suggestedMin: 0,
-                            suggestedMax: 100,
-                            ticks: { display: false }
-                        }
-                    },
-                    animation: {
-                        duration: 700,
-                        easing: 'easeInOutQuad'
-                    },
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: { callbacks: { label: (context) => `Avg Score: ${Math.round(context.parsed.r)}` } }
-                    }
+            
+            {/* Outer Aura (Pulsating Gradient) */}
+            <style jsx="true">{`
+                .aura-effect::before {
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    border-radius: 50%;
+                    padding: 15px;
+                    background: radial-gradient(circle, var(--aura-color-1) 10%, transparent 60%);
+                    opacity: 0.6;
+                    z-index: -1;
+                    animation: aura-expand 4s infinite alternate ease-in-out;
                 }
-            });
-        }
-
-        function getAggregateData() {
-            try {
-                return JSON.parse(localStorage.getItem(AGGREGATE_KEY) || '{}');
-            } catch (e) {
-                console.error("Error reading AGGREGATE data from storage:", e);
-                return {};
-            }
-        }
-
-        function getAllSubmissions() {
-            try {
-                return JSON.parse(localStorage.getItem(VOTE_KEY) || '[]');
-            } catch (e) {
-                console.error("Error reading SUBMISSIONS data from storage:", e);
-                return [];
-            }
-        }
-
-        // The core function that reads data and animates the chart
-        function updateHostChart() {
-            if (!chartInstance) return;
-
-            const submissions = getAllSubmissions();
-            const aggregate = getAggregateData();
-            const totalVotes = submissions.length;
-            let totalPointsAllocated = 0;
-
-            document.getElementById('total-votes').textContent = totalVotes;
-            
-            if (totalVotes === 0) {
-                // Keep chart centered if no votes
-                chartInstance.data.datasets[0].data = [20, 20, 20, 20, 20];
-                document.getElementById('total-points').textContent = 0;
-                chartInstance.update('show');
-                return;
-            }
-
-            const newChartData = [];
-            const keys = Object.keys(STRENGTH_AXES);
-
-            keys.forEach(key => {
-                const sum = aggregate[key] || 0;
-                totalPointsAllocated += sum;
-                const average = sum / totalVotes; 
-                newChartData.push(average);
-            });
-
-            // Update Chart Data with smooth animation
-            chartInstance.data.datasets[0].data = newChartData;
-            chartInstance.update('show'); 
-
-            // Update Host Metrics
-            document.getElementById('total-points').textContent = totalPointsAllocated;
-        }
-
-
-        // --- PLAYER SCREEN LOGIC (Writing Data) ---
-
-        function generatePlayerForm() {
-            const form = document.getElementById('allocation-form');
-            let html = '';
-
-            Object.entries(STRENGTH_AXES).forEach(([key, label]) => {
-                html += `
-                    <div class="talent-input">
-                        <span class="talent-label">${label}:</span>
-                        <input type="number" id="input-${key}" class="form-control form-control-sm mx-3" value="0" min="0" max="100" 
-                               oninput="calculateRemainingPoints()" data-strength-key="${key}">
-                        <span class="point-display" id="display-${key}">0</span>
-                    </div>
-                `;
-            });
-            form.innerHTML = html + form.innerHTML;
-            
-            if (localStorage.getItem(VOTED_FLAG)) {
-                disableVoting();
-            }
-        }
-
-        function calculateRemainingPoints() {
-            let allocated = 0;
-            const inputs = document.querySelectorAll('.talent-input input');
-            
-            inputs.forEach(input => {
-                let value = parseInt(input.value) || 0;
-                if (value > 100) value = 100; 
-                if (value < 0) value = 0;
-                input.value = value;
+                @keyframes aura-expand {
+                    from { transform: scale(1.0); opacity: 0.4; }
+                    to { transform: scale(1.2); opacity: 0.8; }
+                }
                 
-                document.getElementById(`display-${input.dataset.strengthKey}`).textContent = value;
-                allocated += value;
-            });
-
-            remainingPoints = TALENT_POINTS - allocated;
+                /* Pulse rate for the main container */
+                @keyframes pulse-fast { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+                @keyframes pulse-medium { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+                @keyframes pulse-slow { 0%, 100% { opacity: 1; } 50% { opacity: 0.9; } }
+            `}</style>
             
-            const remainingElement = document.getElementById('points-remaining');
-            remainingElement.textContent = remainingPoints;
+            <div className="aura-effect absolute w-full h-full rounded-full"></div>
+        </div>
+    );
+};
 
-            const submitBtn = document.getElementById('submit-budget-btn');
-            
-            if (remainingPoints < 0) {
-                remainingElement.classList.remove('alert-danger');
-                remainingElement.classList.add('alert-warning');
-                submitBtn.disabled = true;
-                submitBtn.textContent = "OVER BUDGET";
-            } else if (remainingPoints === 0) {
-                remainingElement.classList.remove('alert-warning', 'alert-danger');
-                remainingElement.classList.add('alert-success');
-                submitBtn.disabled = false;
-                submitBtn.textContent = "SUBMIT TALENT BUDGET";
-            } else {
-                remainingElement.classList.remove('alert-success', 'alert-warning');
-                remainingElement.classList.add('alert-danger');
-                submitBtn.disabled = true;
-                submitBtn.textContent = "Allocate All 100 Points";
+
+const EssenceSlider = ({ element, value, onChange }) => (
+    <div className="mb-4 p-3 rounded-xl shadow-inner bg-gray-800 border border-gray-700 transition-shadow hover:shadow-lg">
+        <label className={`block text-lg font-semibold ${element.colorClass} mb-2`}>
+            {element.name} ({element.label}): <span className="float-right font-mono text-xl">{value}</span>
+        </label>
+        <input
+            type="range"
+            min="0"
+            max={100}
+            value={value}
+            onChange={(e) => onChange(element.key, parseInt(e.target.value))}
+            className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+            style={{
+                '--range-color': element.hex
+            }}
+        />
+        <style jsx="true">{`
+            input[type=range] {
+                height: 0.5rem;
+                background: #4B5563;
+                border-radius: 9999px;
+            }
+            input[type=range]::-webkit-slider-thumb {
+                appearance: none;
+                width: 18px; /* Slightly larger thumb for better interaction */
+                height: 18px;
+                border-radius: 50%;
+                cursor: pointer;
+                background: var(--range-color);
+                border: 2px solid #1F2937;
+                box-shadow: 0 0 5px rgba(0,0,0,0.5);
+                transition: transform 0.1s;
+            }
+            input[type=range]::-webkit-slider-thumb:active {
+                transform: scale(1.2); /* Fun feedback when dragging */
+            }
+        `}</style>
+    </div>
+);
+
+// --- IMPROVEMENT ADVICE CARD (Updated for 6 elements) ---
+const ImprovementAdviceCard = ({ analysis }) => {
+    const weakestKey = analysis.weakest.key;
+    
+    if (analysis.title === "Balanced Core") {
+        return (
+            <div className="mt-6 p-4 bg-gray-700 rounded-xl border border-yellow-500">
+                <h3 className="text-xl font-bold text-yellow-400 mb-2">Development Focus</h3>
+                <p className="text-gray-300">
+                    Your profile is balanced. To activate a superpower, try increasing one core strength (e.g., Execution) above 80 points.
+                </p>
+            </div>
+        );
+    }
+    
+    const strategies = STRATEGY_DATA[weakestKey] || [];
+
+    return (
+        <div className="mt-6 p-5 bg-gray-700 rounded-xl border border-red-500 shadow-2xl">
+            <h3 className="text-2xl font-bold text-red-400 mb-4">
+                Growth Strategies: Mastering Your Flaw ({analysis.weakest.name})
+            </h3>
+            <ul className="space-y-4">
+                {strategies.map((s, index) => (
+                    <li key={index} className="flex items-start">
+                        <span className="text-2xl font-extrabold text-teal-400 mr-3">
+                            {index + 1}.
+                        </span>
+                        <div>
+                            <p className="font-semibold text-white">{s.title}</p>
+                            <p className="text-sm text-gray-300">{s.description}</p>
+                        </div>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+};
+
+// --- COMPARISON COMPONENT (Updated for 6 elements) ---
+const ComparisonCard = ({ currentEssences, savedProfile, setEssences }) => {
+    if (!savedProfile) {
+        return (
+            <div className="p-4 bg-gray-700 rounded-xl mt-4 text-center border-dashed border-2 border-gray-600">
+                <p className="text-sm text-yellow-400 mb-2">Define your Target Profile below to activate comparison.</p>
+                <button 
+                    onClick={() => setEssences(initialEssence)}
+                    className="text-xs text-gray-400 hover:text-white transition duration-150"
+                >
+                    Reset Mix
+                </button>
+            </div>
+        );
+    }
+    
+    return (
+        <div className="p-4 bg-gray-700 rounded-xl mt-4 border border-teal-500">
+            <h4 className="text-lg font-bold text-teal-400 mb-3">Target Profile: {savedProfile.title}</h4>
+            {STRENGTH_ELEMENTS.map(element => {
+                const currentScore = currentEssences[element.key];
+                const targetScore = savedProfile.currentEssences[element.key];
+                const difference = currentScore - targetScore;
+                const status = difference > 5 ? 'Over-invested' : difference < -5 ? 'Under-invested' : 'Aligned';
+                
+                const textColor = status === 'Over-invested' ? 'text-red-400' : status === 'Under-invested' ? 'text-yellow-400' : 'text-green-400';
+                
+                return (
+                    <div key={element.key} className="flex justify-between text-sm py-1 border-b border-gray-600 last:border-b-0">
+                        <span className="font-semibold">{element.name}:</span>
+                        <span className={textColor}>
+                            {status} ({targetScore} vs {currentScore})
+                        </span>
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
+
+// --- GEMINI-POWERED CAREER ALIGNMENT CHECKER (Updated for 6 elements) ---
+const CareerAlignmentChecker = ({ currentEssences }) => {
+    const [jobInput, setJobInput] = useState('');
+    const [alignmentResult, setAlignmentResult] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState(null);
+
+    // Define the JSON schema for the LLM's response (now 6 properties)
+    const responseSchema = {
+        type: "OBJECT",
+        properties: {
+            Execution: { type: "NUMBER", description: "Required score (0-100) for Execution/Speed & Action." },
+            Relational: { type: "NUMBER", description: "Required score (0-100) for Relational/Empathy & Influence." },
+            Analytical: { type: "NUMBER", description: "Required score (0-100) for Analytical/Stability & Logic." },
+            Creative: { type: "NUMBER", description: "Required score (0-100) for Creative/Vision & Ideation." },
+            Adaptability: { type: "NUMBER", description: "Required score (0-100) for Adaptability/Agility & Learning." },
+            Leadership: { type: "NUMBER", description: "Required score (0-100) for Leadership/Vision & Direction." },
+        },
+        required: ["Execution", "Relational", "Analytical", "Creative", "Adaptability", "Leadership"],
+    };
+
+    const checkAlignment = async () => {
+        if (!jobInput.trim()) return;
+
+        setIsLoading(true);
+        setError(null);
+        setAlignmentResult(null);
+
+        // Updated system prompt to include all 6 strengths
+        const systemPrompt = "You are a professional career analyst and expert in soft skill requirements. Given a job title, your task is to assess the ideal strength profile required for high success in that role. Provide the output as a JSON object with scores between 0 and 100 for each of the six specified strength categories: Execution, Relational, Analytical, Creative, Adaptability, and Leadership.";
+        const userQuery = `Analyze the ideal strength profile (0-100 scores) for the role of: ${jobInput}`;
+
+        const payload = {
+            contents: [{ parts: [{ text: userQuery }] }],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: responseSchema,
+            }
+        };
+
+        let success = false;
+        let retries = 0;
+        const maxRetries = 3;
+
+        while (!success && retries < maxRetries) {
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API returned status ${response.status}`);
+                }
+
+                const result = await response.json();
+                const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                
+                if (!jsonText) {
+                    throw new Error("Received empty response from API.");
+                }
+
+                const requirements = JSON.parse(jsonText);
+                
+                // --- Alignment Logic ---
+                const feedback = [];
+                let totalGap = 0;
+
+                STRENGTH_ELEMENTS.forEach(element => {
+                    // Match the required score by the element's full name
+                    const requiredScore = requirements[element.name]; 
+                    const currentScore = currentEssences[element.key];
+                    const gap = requiredScore - currentScore;
+
+                    if (gap > 0) {
+                        totalGap += gap;
+                        feedback.push({ name: element.name, status: 'BOOST REQUIRED', gap: gap, color: 'text-red-400' });
+                    } else {
+                        feedback.push({ name: element.name, status: 'ALIGNED', gap: 0, color: 'text-green-400' });
+                    }
+                });
+
+                const alignmentScore = Math.max(0, 100 - (totalGap * 0.3)); // Adjusted multiplier slightly for 6 elements
+
+                setAlignmentResult({
+                    jobTitle: jobInput,
+                    feedback: feedback,
+                    alignmentScore: alignmentScore,
+                    isHighAlignment: alignmentScore >= 75
+                });
+                success = true;
+
+            } catch (err) {
+                retries++;
+                if (retries < maxRetries) {
+                    const delay = Math.pow(2, retries) * 1000;
+                    await new Promise(res => setTimeout(res, delay));
+                } else {
+                    setError("Could not analyze job profile. Please try a different role.");
+                }
             }
         }
+        setIsLoading(false);
+    };
+    
+    // Determine overall alignment color
+    const alignmentColor = alignmentResult ? 
+        alignmentResult.isHighAlignment ? 'bg-green-600' : 'bg-yellow-600'
+        : 'bg-gray-600';
 
-        function disableVoting() {
-            const inputs = document.querySelectorAll('.talent-input input');
-            inputs.forEach(input => input.disabled = true);
-            document.getElementById('submit-budget-btn').disabled = true;
-            document.getElementById('submit-budget-btn').textContent = "VOTED! Thank You.";
-            document.getElementById('submission-message').classList.remove('hidden');
-        }
-
-        function submitBudget() {
-            if (remainingPoints !== 0 || localStorage.getItem(VOTED_FLAG)) return;
-
-            let submittedBudget = {};
-            const inputs = document.querySelectorAll('.talent-input input');
+    return (
+        <div className="w-full mt-8 p-5 bg-gray-700 rounded-xl shadow-2xl border border-blue-500">
+            <h3 className="text-2xl font-bold text-blue-400 mb-4 border-b border-blue-800 pb-2">
+                3. ✨ Dynamic Career Alignment Check ✨
+            </h3>
             
-            inputs.forEach(input => {
-                submittedBudget[input.dataset.strengthKey] = parseInt(input.value) || 0;
-            });
-
-            // 1. Update the Aggregate Sum (writing to storage)
-            const currentAggregate = getAggregateData();
-            let newAggregate = { ...currentAggregate }; 
+            <p className="text-sm text-gray-400 mb-3">Type any job to instantly see the required strength profile analyzed by professionals:</p>
             
-            Object.keys(STRENGTH_AXES).forEach(key => {
-                newAggregate[key] = (currentAggregate[key] || 0) + submittedBudget[key];
-            });
-            localStorage.setItem(AGGREGATE_KEY, JSON.stringify(newAggregate));
+            <div className="flex space-x-3 mb-4">
+                <input
+                    type="text"
+                    value={jobInput}
+                    onChange={(e) => setJobInput(e.target.value)}
+                    placeholder="e.g., Chief Technology Officer"
+                    className="flex-grow p-2 rounded bg-gray-800 text-white border border-gray-600 focus:border-blue-400"
+                    disabled={isLoading}
+                />
+                <button
+                    onClick={checkAlignment}
+                    className="p-2 rounded font-bold text-gray-900 bg-blue-400 hover:bg-blue-500 transition duration-200"
+                    disabled={isLoading}
+                >
+                    {isLoading ? (
+                         <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    ) : (
+                        'Analyze'
+                    )}
+                </button>
+            </div>
 
-            // 2. Add the submission to the list of all submissions (for counting votes)
-            const allSubmissions = getAllSubmissions();
-            allSubmissions.push(submittedBudget);
-            localStorage.setItem(VOTE_KEY, JSON.stringify(allSubmissions));
+            {error && <div className="mt-4 p-3 bg-red-800 rounded text-red-300 font-semibold">{error}</div>}
 
-            // 3. Mark as voted and disable the form
-            localStorage.setItem(VOTED_FLAG, 'true'); 
-            disableVoting();
-            
-            // 4. Update the Host screen immediately if possible (if they are on the same machine/browser instance)
-            if (window.innerWidth > 768) { 
-                updateHostChart();
+            {alignmentResult && !isLoading && (
+                <div className="mt-4 p-4 rounded-xl shadow-inner bg-gray-800">
+                    <div className={`p-3 rounded-lg ${alignmentColor} text-center font-bold text-white mb-3 transition-all duration-300`}>
+                        Alignment Score for {alignmentResult.jobTitle}: {Math.round(alignmentResult.alignmentScore)}%
+                    </div>
+
+                    <p className="font-semibold text-gray-300 mb-2">Required Strengths Analysis (Professional Requirements):</p>
+                    <ul className="space-y-1">
+                        {alignmentResult.feedback.map((f, index) => (
+                            <li key={index} className="flex justify-between text-sm">
+                                <span className="font-semibold text-gray-400">{f.name}:</span>
+                                <span className={f.color}>
+                                    {f.status} {f.gap > 0 && `(+${f.gap} points needed)`}
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+        </div>
+    );
+};
+
+
+const App = () => {
+    const [essences, setEssences] = useState(initialEssence);
+    const [savedProfile, setSavedProfile] = useState(null);
+    const [message, setMessage] = useState('');
+
+    const handleEssenceChange = useCallback((key, value) => {
+        setEssences(prev => ({ ...prev, [key]: value }));
+    }, []);
+
+    const analysis = useMemo(() => analyzeEssence(essences), [essences]);
+
+    // Load saved profile on initial render
+    useEffect(() => {
+        const saved = localStorage.getItem(TARGET_PROFILE_KEY);
+        if (saved) {
+            try {
+                setSavedProfile(JSON.parse(saved));
+            } catch (e) {
+                console.error("Failed to parse saved profile:", e);
+                localStorage.removeItem(TARGET_PROFILE_KEY);
             }
         }
+    }, []);
 
-        // --- GAME START ---
+    // Function to save the current profile as the Target
+    const saveProfile = () => {
+        const profileToSave = {
+            title: analysis.title,
+            currentEssences: analysis.currentEssences,
+        };
+        localStorage.setItem(TARGET_PROFILE_KEY, JSON.stringify(profileToSave));
+        setSavedProfile(profileToSave);
+        setMessage("Target Profile saved successfully!");
+        setTimeout(() => setMessage(''), 3000);
+    };
 
-        document.addEventListener('DOMContentLoaded', () => {
-            // Check screen size to initialize correct view
-            if (window.innerWidth > 768) {
-                // Host starts centered and requires manual update
-                initChart();
-            } else {
-                // Player generates the input form
-                generatePlayerForm();
-                calculateRemainingPoints(); 
-            }
-        });
-    </script>
-</body>
-</html>
+    // Function to clear the saved profile
+    const clearProfile = () => {
+        localStorage.removeItem(TARGET_PROFILE_KEY);
+        setSavedProfile(null);
+        setMessage("Target Profile cleared.");
+        setTimeout(() => setMessage(''), 3000);
+    };
+
+    return (
+        <div className="min-h-screen bg-gray-900 text-gray-100 flex items-center justify-center p-4 font-sans">
+            <div className="max-w-4xl w-full bg-gray-800 rounded-3xl shadow-[0_0_50px_rgba(100,20,100,0.5)] p-6 md:p-10 border border-purple-800">
+                <header className="text-center mb-8">
+                    <h1 className="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-blue-500 mb-2">
+                        The Strengths Alchemist
+                    </h1>
+                    <p className="text-xl text-gray-400">Mix the six professional essences to discover your hidden profile.</p>
+                </header>
+
+                <div className="grid md:grid-cols-2 gap-8">
+                    
+                    {/* --- Input Column (The Game) --- */}
+                    <div>
+                        <h2 className="text-2xl font-bold mb-4 text-purple-400 border-b border-purple-800 pb-2">
+                            1. Define Your Balance
+                        </h2>
+                        {STRENGTH_ELEMENTS.map(element => (
+                            <EssenceSlider
+                                key={element.key}
+                                element={element}
+                                value={essences[element.key]}
+                                onChange={handleEssenceChange}
+                            />
+                        ))}
+                        
+                        <div className="mt-6 flex justify-between space-x-3">
+                            <button
+                                onClick={saveProfile}
+                                className="w-1/2 p-3 rounded-xl font-bold text-gray-900 bg-yellow-400 hover:bg-yellow-500 transition duration-200 shadow-md"
+                            >
+                                SAVE AS TARGET
+                            </button>
+                            <button
+                                onClick={clearProfile}
+                                className="w-1/2 p-3 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 transition duration-200 shadow-md"
+                            >
+                                CLEAR TARGET
+                            </button>
+                        </div>
+                        {message && (
+                            <div className="mt-3 text-center text-sm font-semibold text-green-400 animate-fadeIn">{message}</div>
+                        )}
+                        
+                        {/* 3. GEMINI-POWERED CAREER ALIGNMENT CHECK */}
+                        <CareerAlignmentChecker currentEssences={essences} />
+                    </div>
+                    
+                    {/* --- Output Column (The Spectacle & Comparison) --- */}
+                    <div className="flex flex-col items-center">
+                        <h2 className="text-2xl font-bold mb-4 text-purple-400 border-b border-purple-800 pb-2 w-full text-center">
+                            Essence Aura & Profile
+                        </h2>
+                        
+                        <AuraDisplay analysis={analysis} />
+                        
+                        <div className={`w-full p-4 rounded-xl shadow-xl transition-all duration-500 ${analysis.color} text-white text-center mb-4`}>
+                            <p className="text-2xl font-bold">{analysis.title}</p>
+                        </div>
+                        
+                        {/* 2. Target Gap Analysis */}
+                        <div className="w-full">
+                            <h3 className="text-2xl font-bold mt-2 mb-4 text-teal-400 border-b border-teal-800 pb-2">
+                                2. Target Gap Analysis
+                            </h3>
+                            <ComparisonCard 
+                                currentEssences={essences} 
+                                savedProfile={savedProfile} 
+                                setEssences={setEssences}
+                            />
+                        </div>
+                        
+                         {/* 4. Improvement Advice */}
+                        <div className="w-full mt-6">
+                            <ImprovementAdviceCard analysis={analysis} />
+                        </div>
+                    </div>
+                </div>
+                
+                <footer className="mt-8 text-center text-gray-500 text-sm border-t border-gray-700 pt-4">
+                    <p>This tool defines one's unique professional profile through balancing core professional strengths (Execution, Empathy, Logic, Creativity).</p>
+                </footer>
+            </div>
+        </div>
+    );
+};
+
+export default App;
