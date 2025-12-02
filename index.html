@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strength Spectrum: The Talent Budget</title>
+    <!-- Bootstrap 5 CDN for Clean, Professional UI -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
+        /* --- EMBEDDED CSS FOR AMAZING AESTHETICS & FUN --- */
+
+        :root {
+            --primary-bg: #1a1a2e; /* Deep space blue */
+            --card-bg: #2a2a4a;
+            --text-light: #e0e0f0;
+            --accent-main: #ff7e5f; /* Coral/Orange for excitement */
+            --accent-chart: #feb47b; /* Softer color for chart fill */
+            --warning-alert: #ffc107;
+        }
+
+        body {
+            background-color: var(--primary-bg);
+            color: var(--text-light);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: background-color 0.5s;
+        }
+
+        header {
+            background-color: var(--card-bg);
+            border-bottom: 3px solid var(--accent-main);
+        }
+
+        .screen-container {
+            max-width: 1200px;
+            margin: 40px auto;
+        }
+
+        /* View Switching Logic */
+        @media (max-width: 768px) {
+            #host-screen { display: none !important; }
+            #player-screen { display: block !important; }
+        }
+
+        @media (min-width: 769px) {
+            #host-screen { display: block !important; }
+            #player-screen { display: none !important; }
+        }
+
+        /* Host Screen Visuals */
+        #host-screen .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--accent-main);
+            height: 100%;
+        }
+        
+        /* Player Input Styles */
+        .talent-input {
+            background: #333355; /* Dark purple shade */
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            animation: fadeIn 0.5s ease-out;
+        }
+        .talent-label {
+            min-width: 120px;
+            font-weight: bold;
+            color: #90CAF9;
+        }
+        .point-display {
+            min-width: 50px;
+            text-align: center;
+            font-weight: bold;
+            color: var(--warning-alert);
+            font-size: 1.2em;
+        }
+        .form-control {
+            background-color: #4a4a6e;
+            color: var(--text-light);
+            border: 1px solid var(--accent-main);
+        }
+        
+        /* FUN ANIMATION: Pulsing Button */
+        #submit-budget-btn {
+            background-color: var(--accent-main);
+            border: none;
+            color: var(--primary-bg);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 126, 95, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(255, 126, 95, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 126, 95, 0); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-dark text-light">
+
+    <!-- Chart.js CDN for Radar Graph -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+    <header class="text-center py-4 shadow-lg">
+        <h1 class="display-5 fw-bold text-light">✨ Strength Spectrum: The Talent Budget ✨</h1>
+        <p class="lead text-muted">Design your collective superpower. Allocate 100 Talent Points.</p>
+    </header>
+
+    <main class="container py-5">
+        
+        <!-- HOST SCREEN (Desktop View - The Spectacle) -->
+        <div id="host-screen" class="screen-container">
+            <h2 class="text-center mb-4 text-warning">Collective Strength Radar</h2>
+            
+            <div class="row">
+                <!-- Radar Chart Container -->
+                <div class="col-lg-7">
+                    <div class="card shadow-lg">
+                        <div class="card-body p-4">
+                            <!-- Canvas where the smooth chart animation happens -->
+                            <canvas id="strengthChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <!-- Instructions and Metrics -->
+                <div class="col-lg-5">
+                    <div class="card shadow-lg h-100 p-3">
+                        <div class="card-body">
+                            <h4 class="text-info">Instructions:</h4>
+                            <p class="text-muted">Scan the QR code to access the Talent Budget screen. **Allocate 100 points.** The radar will update live!</p>
+                            <hr>
+                            <div id="host-metrics" class="mb-4">
+                                <p class="mb-1"><strong>Total Participants:</strong> <span id="total-votes" class="badge bg-success fs-5">0</span></p>
+                                <p><strong>Total Points Allocated:</strong> <span id="total-points" class="badge bg-warning fs-5">0</span></p>
+                            </div>
+                            
+                            <h4 class="text-danger">Live Analysis:</h4>
+                            <p id="analysis-text" class="text-muted">The shifting shape reveals your collective priorities. Look for sharp peaks (Superpowers) and deep valleys (Gaps)!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PLAYER SCREEN (Mobile View - The Game) -->
+        <div id="player-screen" class="screen-container">
+            <h2 class="text-center mb-4 text-info">Allocate Your 100 Talent Points</h2>
+            <div id="allocation-form">
+                <!-- Inputs generated by JS -->
+                <p class="alert alert-danger text-center fw-bold fs-4">Remaining Points: <span id="points-remaining">100</span></p>
+            </div>
+            <div class="text-center mt-4">
+                <button id="submit-budget-btn" class="btn btn-lg shadow-lg" onclick="submitBudget()" disabled>Allocate All 100 Points</button>
+            </div>
+            <p id="submission-message" class="text-center text-success mt-3 fw-bold hidden fs-5">Budget Submitted! Analyzing the room...</p>
+        </div>
+    </main>
+
+    <script>
+        // --- JAVASCRIPT: THE GAME ENGINE AND CHART LOGIC ---
+        
+        const STRENGTH_AXES = {
+            ANALYTICAL: "The Oracle (Logic)",
+            CREATIVE: "The Weaver (Ideation)",
+            RELATIONAL: "The Nexus (Influence)",
+            EXECUTION: "The Engine (Speed)",
+            LEADERSHIP: "The Captain (Vision)"
+        };
+        const TALENT_POINTS = 100;
+        const VOTE_KEY = 'strengthSpectrumVotes'; 
+        const AGGREGATE_KEY = 'strengthAggregate'; 
+        let chartInstance = null;
+        let remainingPoints = TALENT_POINTS;
+
+        // --- HOST SCREEN LOGIC (Reading Data) ---
+
+        function initChart() {
+            const ctx = document.getElementById('strengthChart').getContext('2d');
+            const labels = Object.values(STRENGTH_AXES);
+
+            chartInstance = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Collective Strength Profile',
+                        data: [20, 20, 20, 20, 20], // Centered start
+                        backgroundColor: 'rgba(255, 126, 95, 0.4)', // Accent for fun
+                        borderColor: '#FF7E5F',
+                        pointBackgroundColor: '#FF7E5F',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            angleLines: { color: 'rgba(255, 255, 255, 0.2)' },
+                            grid: { color: 'rgba(255, 255, 255, 0.2)' },
+                            pointLabels: { color: '#e0e0f0', font: { size: 14 } },
+                            suggestedMin: 0,
+                            suggestedMax: 100,
+                            ticks: { display: false }
+                        }
+                    },
+                    animation: {
+                        duration: 700, // Smooth transition duration
+                        easing: 'easeInOutQuad' // Fun animation style
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: (context) => `Avg Score: ${Math.round(context.parsed.r)}` } }
+                    }
+                }
+            });
+        }
+
+        function getAggregateData() {
+            return JSON.parse(localStorage.getItem(AGGREGATE_KEY) || '{}');
+        }
+
+        function getAllSubmissions() {
+            return JSON.parse(localStorage.getItem(VOTE_KEY) || '[]');
+        }
+
+        function updateHostChart() {
+            if (!chartInstance) return;
+
+            const submissions = getAllSubmissions();
+            const aggregate = getAggregateData();
+            const totalVotes = submissions.length;
+            let totalPointsAllocated = 0;
+
+            document.getElementById('total-votes').textContent = totalVotes;
+            
+            if (totalVotes === 0) return;
+
+            const newChartData = [];
+            const keys = Object.keys(STRENGTH_AXES);
+
+            keys.forEach(key => {
+                const sum = aggregate[key] || 0;
+                totalPointsAllocated += sum;
+                const average = sum / totalVotes; 
+                newChartData.push(average);
+            });
+
+            // Update Chart Data with smooth animation
+            chartInstance.data.datasets[0].data = newChartData;
+            chartInstance.update('show'); 
+
+            // Update Host Metrics
+            document.getElementById('total-points').textContent = totalPointsAllocated;
+        }
+
+
+        // --- PLAYER SCREEN LOGIC (Writing Data) ---
+
+        function generatePlayerForm() {
+            const form = document.getElementById('allocation-form');
+            let html = '';
+
+            Object.entries(STRENGTH_AXES).forEach(([key, label]) => {
+                html += `
+                    <div class="talent-input">
+                        <span class="talent-label">${label}:</span>
+                        <input type="number" id="input-${key}" class="form-control form-control-sm mx-3" value="0" min="0" max="100" 
+                               oninput="calculateRemainingPoints()" data-strength-key="${key}">
+                        <span class="point-display" id="display-${key}">0</span>
+                    </div>
+                `;
+            });
+            form.innerHTML = html + form.innerHTML;
+            
+            if (localStorage.getItem('hasVoted')) {
+                disableVoting();
+            }
+        }
+
+        function calculateRemainingPoints() {
+            let allocated = 0;
+            const inputs = document.querySelectorAll('.talent-input input');
+            
+            inputs.forEach(input => {
+                let value = parseInt(input.value) || 0;
+                if (value > 100) value = 100; 
+                if (value < 0) value = 0;
+                input.value = value;
+                
+                document.getElementById(`display-${input.dataset.strengthKey}`).textContent = value;
+                allocated += value;
+            });
+
+            remainingPoints = TALENT_POINTS - allocated;
+            
+            const remainingElement = document.getElementById('points-remaining');
+            remainingElement.textContent = remainingPoints;
+
+            const submitBtn = document.getElementById('submit-budget-btn');
+            
+            // Logic to activate the pulsing submit button
+            if (remainingPoints < 0) {
+                remainingElement.classList.remove('alert-danger');
+                remainingElement.classList.add('alert-warning');
+                submitBtn.disabled = true;
+                submitBtn.textContent = "OVER BUDGET";
+            } else if (remainingPoints === 0) {
+                remainingElement.classList.remove('alert-warning', 'alert-danger');
+                remainingElement.classList.add('alert-success');
+                submitBtn.disabled = false;
+                submitBtn.textContent = "SUBMIT TALENT BUDGET";
+            } else {
+                remainingElement.classList.remove('alert-success', 'alert-warning');
+                remainingElement.classList.add('alert-danger');
+                submitBtn.disabled = true;
+                submitBtn.textContent = "Allocate All 100 Points";
+            }
+        }
+
+        function disableVoting() {
+            const inputs = document.querySelectorAll('.talent-input input');
+            inputs.forEach(input => input.disabled = true);
+            document.getElementById('submit-budget-btn').disabled = true;
+            document.getElementById('submit-budget-btn').textContent = "VOTED! Thank You.";
+            document.getElementById('submission-message').classList.remove('hidden');
+        }
+
+        function submitBudget() {
+            if (remainingPoints !== 0 || localStorage.getItem('hasVoted')) return;
+
+            let submittedBudget = {};
+            const inputs = document.querySelectorAll('.talent-input input');
+            
+            inputs.forEach(input => {
+                submittedBudget[input.dataset.strengthKey] = parseInt(input.value) || 0;
+            });
+
+            // 1. Update the Aggregate Sum (writing to storage)
+            const currentAggregate = getAggregateData();
+            let newAggregate = { ...currentAggregate }; 
+            
+            Object.keys(STRENGTH_AXES).forEach(key => {
+                newAggregate[key] = (currentAggregate[key] || 0) + submittedBudget[key];
+            });
+            localStorage.setItem(AGGREGATE_KEY, JSON.stringify(newAggregate));
+
+            // 2. Add the submission to the list of all submissions (for counting votes)
+            const allSubmissions = getAllSubmissions();
+            allSubmissions.push(submittedBudget);
+            localStorage.setItem(VOTE_KEY, JSON.stringify(allSubmissions));
+
+            // 3. Mark as voted and disable the form
+            localStorage.setItem('hasVoted', 'true'); 
+            disableVoting();
+        }
+
+        // --- GAME START ---
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Clear past votes on initial load for a fresh presentation (ONLY on Host Screen)
+            if (window.innerWidth > 768) {
+                localStorage.clear(); 
+            }
+            
+            // Check screen size to initialize correct view
+            if (window.innerWidth > 768) {
+                initChart();
+                // Host starts reading data every 1.5 seconds
+                setInterval(updateHostChart, 1500); 
+            } else {
+                // Player generates the input form
+                generatePlayerForm();
+                calculateRemainingPoints(); 
+            }
+        });
+    </script>
+</body>
+</html>
